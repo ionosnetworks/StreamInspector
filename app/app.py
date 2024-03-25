@@ -5,8 +5,11 @@ import os
 import random
 import time
 from slack import post_status_to_slack
+import logging
 
 load_dotenv()
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(filename)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
 
 ignore_orgs = [1,2, 220, 463, 461]
 
@@ -32,16 +35,15 @@ def get_org_user_details(orgs_to_inspect: str):
         """
         db_runner = MySqlHelper()
         db_runner.connect()
-        print(query)
         result = db_runner.execute_query(query)
         db_runner.disconnect()
         if not result:
-            print("Empty response: No installer accounts found for org")
+            logger.info("Empty response: No installer accounts found for org")
             return None
-        print('User Accounts L: ',result)
+        logger.debug(f"User Accounts Info: {result}")
         return result
     except Exception as e:
-        print(f"Could not get User account details : {str(e)}")
+        logger.error(f"Could not get User account details: {e}", exc_info=True)
         return None
    
 
@@ -80,13 +82,13 @@ def get_cameras_for_org(org_id: int, db_runner=None):
                     selected_cameras = random.sample(camera_ids_list, no_of_selections)
                     location_dict['camera_ids'] = selected_cameras
                 else:
-                    print("No online cameras found for location : {location_dict}")
+                    logger.warning(f"No online cameras found for location : {location_dict}")
             return result
         else:
-            print("No online cameras found. Empty response from query.")
+            logger.warning("No online cameras found. Empty response from query.")
             return None  
     except Exception as e:
-        print(f"Could not get camera info : {str(e)}")
+        logger.error(f"Could not get camera info : {str(e)}", exc_info=True)
         return None
     
 
@@ -99,7 +101,7 @@ def start_workflow():
         account_info = get_org_user_details(ORGS_TO_INSPECT)
         if account_info is None:
             db_runner.disconnect()
-            print("Nothing to check. goodbye")
+            logger.warning("Nothing to check. goodbye")
             return None
         else:
             # process each org
@@ -109,31 +111,29 @@ def start_workflow():
                     inspector = StreamInspector()
                     inspector.login(account["email_address"], DEFAULT_ACCOUNT_PASSWORD)
                 except Exception as e:
-                    print(f"Web driver error : {str(e)}")
+                    logger.error(f"Web driver error : {str(e)}", exc_info=True)
                     return None
-                print(f"----- ORG ---- {account['org_name']}")
+                logger.info(f"Processing ORG : {account['org_name']}")
                 # get camera details for the org
                 camera_info = get_cameras_for_org(int(account['org_id']), db_runner)
                 if camera_info is not None:
                     org_stream_state = {'org_id': int(account['org_id']), 'org_name' : account['org_name'], 'locations' : []}
                     for location_dict in camera_info:
                         location_record = {'location_name': location_dict['location'], 'camera_ids': [], 'stream_states': []}
-                        print(location_dict['location'])
+                        logger.info(f"Processing Location : {location_dict['location']}")
                         for camera_id in location_dict['camera_ids']:
+                            logger.info(f"Processing {camera_id} - waiting for few seconds")
                             # get state from camera
                             time.sleep(random.randint(5,15))
                             stream_state = inspector.check_live_stream(camera_id)
+                            logger.info(f"{camera_id} state returned as : {stream_state}")
                             location_record['camera_ids'].append(camera_id)
                             location_record['stream_states'].append(stream_state) 
                         org_stream_state['locations'].append(location_record)
                     stream_states_result.append(org_stream_state)
-                if inspector is not None:
-                    inspector.close_driver()
-            db_runner.disconnect()
-            inspector.close_driver()
             return stream_states_result
     except Exception as e:
-        print(f"Automated workflow interrupted by {e}")
+        logger.error(f"Automated workflow interrupted by {e}", exc_info=True)
         return None
     finally:
         if db_runner is not None:
@@ -144,10 +144,13 @@ def start_workflow():
 def main():
     inspection_result = start_workflow()
     if inspection_result is not None:
-        print(inspection_result)
+        logger.info(f"Workflow Result : {inspection_result}")
         post_status_to_slack(inspection_result)
-    print(f"Execution successfull")
+    logger.info(f"Execution successfull")
 
 if __name__ == '__main__':
     main()
+
+
+
 

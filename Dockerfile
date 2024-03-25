@@ -19,7 +19,7 @@ COPY ./app /app
 RUN pip install --upgrade pip
 
 # install selenium
-RUN pip3 install selenium polling2 webdriver-manager slack_sdk
+RUN pip3 install selenium polling2 webdriver-manager slack_sdk PyMySQL
 
-CMD ["python", "/app/inspector.py"]
+CMD ["python", "/app/app.py"]
 

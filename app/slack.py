@@ -3,8 +3,11 @@ from slack_sdk.errors import SlackApiError
 from inspector import StreamStates
 from dotenv import load_dotenv
 import os
+import logging
 
 load_dotenv()
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(filename)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
 
 SLACK_CHANNEL = os.environ.get("SLACK_CHANNEL")
 SLACK_TOKEN = os.environ.get("SLACK_OAUTH_TOKEN")
@@ -23,9 +26,9 @@ def stream_state_to_emoji(state_array):
 
 def post_status_to_slack(stream_states):
     try:
-    
+
         if len(stream_states) == 0:
-            print("Nothing to send here")
+            logger.info("Nothing to send here - empty data")
             return
         else:
             blocks = []
@@ -50,14 +53,25 @@ def post_status_to_slack(stream_states):
                     },
                 }
                 blocks.append(org_content)
+            info_section = {
+                "type": "context",
+                "elements": [
+                    {
+                        "type": "plain_text",
+                        "text": "✅ - LOADED 🚫 - NO SIGNAL 💤 - TIMEOUT ⚠️ - FAILED RUN",
+                        "emoji": True,
+                    }
+                ],
+            }
+            blocks.append(info_section)
             client = WebClient(token=SLACK_TOKEN)
             response = client.chat_postMessage(
                 channel=SLACK_CHANNEL, 
                 text="Live Stream Check", 
                 blocks=blocks
             )
+            logger.info("Message successfully sent to Slack.")
     except SlackApiError as err:
-        print(f"Error posting message to Slack: {e}")
+        logger.error(f"Error posting message to Slack: {err}", exc_info=True)
     except Exception as e:
-        print("Some unknoen error occured sending message : ",e)    
-    
+        logger.error(f"Something went wrong in posting message to slack: {e}", exc_info=True)    

@@ -8,8 +8,10 @@ import time
 import polling2
 from mysql import MySqlHelper
 from dotenv import load_dotenv
-
+import logging
 load_dotenv()
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(filename)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
 
 
 ignore_orgs = [1,2, 220, 463, 461]
@@ -28,18 +30,19 @@ class StreamInspector:
         try:
             options = webdriver.ChromeOptions()
             options.add_argument("--no-sandbox")
-            # options.add_argument("--headless")
+            options.add_argument("--headless")
             options.add_argument("--incognito")
             options.add_argument("--no-first-run")
             options.add_argument("start-maximized")
             self.driver = webdriver.Chrome(options=options)
             self.wait = WebDriverWait(self.driver, 60)
         except Exception as e:
-            print(f"Exception occurred during login: {e}")
+            logger.error(f"Exception occurred during web driver init:", exc_info=True)
             return StreamStates.INTERNAL_SERVICE_ERROR
 
     def login(self, email: str, password: str):
         try:
+            logger.info(f"trying to login using : {email}")
             self.driver.get("https://app.livereach.ai/login")
             self.wait.until(EC.presence_of_element_located((By.TAG_NAME, "form")))
             username_input = self.driver.find_element(By.ID, 'username')
@@ -52,7 +55,7 @@ class StreamInspector:
             submit_button.click()
             self.wait.until(EC.url_contains("https://app.livereach.ai/live/overview"))
         except Exception as e:
-            print(f"Exception occurred during login: {e}")
+            logger.error(f"Exception occurred during login:", exc_info=True)
             return StreamStates.LOGIN_ERROR
 
     def _verify_stream_status(self):
@@ -61,7 +64,7 @@ class StreamInspector:
         video_attr_paused = video_element.get_property("paused")
         video_attr_ended = video_element.get_property("ended")
         video_attr_ready_state = video_element.get_property("readyState")
-        print(f"Attributes CT : {video_attr_current_time} PAUSE : {video_attr_paused} ENDED : {video_attr_ended} RS : {video_attr_ready_state}")
+        logger.info(f"Attributes CT : {video_attr_current_time} PAUSE : {video_attr_paused} ENDED : {video_attr_ended} RS : {video_attr_ready_state}")
         if video_attr_current_time > 1 and not video_attr_paused and video_attr_ready_state > 2:
             return StreamStates.LOADED
         elif "no signal" in self.driver.page_source:
@@ -76,7 +79,7 @@ class StreamInspector:
         try:
             WebDriverWait(self.driver, 50).until(EC.presence_of_element_located((By.TAG_NAME, "video")))
         except Exception as e:
-            print(f"Unable to load camera page : {e}")
+            logger.error(f"Unable to Load Camera page:", exc_info=True)
             return StreamStates.CANT_LOAD_CAMERA_PAGE
         try:
             poll_result = polling2.poll(lambda: self._verify_stream_status(),
@@ -88,16 +91,16 @@ class StreamInspector:
         except polling2.TimeoutException:
             return StreamStates.TOO_LONG_TO_LOAD
         except Exception as e:
-            print(f"Exception occurred during live stream check: {e}")
+            logger.error(f"Exception occurred during camera video check:", exc_info=True)
             return StreamStates.INTERNAL_SERVICE_ERROR
         
     def close_driver(self):
         try:
             if self.driver:
                 self.driver.quit()
-                print("Driver closed and memory freed")
+                logger.info("Driver closed and memory freed")
         except Exception as e:
-            print(f"Exception occurred while closing driver: {e}")
+            logger.error(f"Exception occurred when closing driver:", exc_info=True)
       
 
 

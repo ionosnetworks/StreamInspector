@@ -1,9 +1,11 @@
 import os
 import pymysql
 from dotenv import load_dotenv
+import logging
 
 load_dotenv()
-
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(filename)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
 class MySqlHelper:
     def __init__(self):
         self.host = os.environ.get("MYSQL_HOST")
@@ -23,8 +25,8 @@ class MySqlHelper:
                 cursorclass=pymysql.cursors.DictCursor
             )
         except pymysql.Error as err:
-            print("Please export MySQL Credential in your OS environment")
-            print(f"Error: {err}")
+            logger.info("")
+            logger.error("Error connecting db - Export MySQL Credential in the environment", exc_info=True)
             self.connection = None
 
     def disconnect(self):
@@ -32,12 +34,13 @@ class MySqlHelper:
             self.connection.close()
 
     def execute_query(self, query, params=None):
+        logger.debug(f"Query : {query}")
         try:
             with self.connection.cursor() as cursor:
                 cursor.execute(query, params)
                 self.connection.commit()
                 return cursor.fetchall()
         except pymysql.Error as err:
-            print(f"Error: {err}")
+            logger.error("Error executing query", exc_info=True)
             return None
 
