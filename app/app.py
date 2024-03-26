@@ -109,10 +109,14 @@ def start_workflow():
                 # spawn a browser
                 try:
                     inspector = StreamInspector()
-                    inspector.login(account["email_address"], DEFAULT_ACCOUNT_PASSWORD)
                 except Exception as e:
                     logger.error(f"Web driver error : {str(e)}", exc_info=True)
                     return None
+                login_state = inspector.login(account["email_address"], DEFAULT_ACCOUNT_PASSWORD)
+                if login_state == StreamStates.LOGIN_ERROR:
+                    # if there is a login error then skip
+                    logging.warning(f"Login failed: Org - {account['org_name']} with email {account['email_address']}. Skipping")
+                    continue
                 logger.info(f"Processing ORG : {account['org_name']}")
                 # get camera details for the org
                 camera_info = get_cameras_for_org(int(account['org_id']), db_runner)
