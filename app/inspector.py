@@ -9,6 +9,7 @@ import polling2
 from mysql import MySqlHelper
 from dotenv import load_dotenv
 import logging
+import random
 load_dotenv()
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(filename)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
@@ -97,8 +98,11 @@ class StreamInspector:
     def close_driver(self):
         try:
             if self.driver:
+                self.driver.close()
+                time.sleep(random.randint(5,10))
                 self.driver.quit()
-                logger.info("Driver closed and memory freed")
+                logger.info("Driver closed . Waiting to free memory")
+                time.sleep(random.randint(5,10))
         except Exception as e:
             logger.error(f"Exception occurred when closing driver:", exc_info=True)
       

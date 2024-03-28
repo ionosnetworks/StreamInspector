@@ -18,7 +18,9 @@ def stream_state_to_emoji(state_array):
         StreamStates.LOADED: " ✅ ",
         StreamStates.NO_SIGNAL: " 🚫 ",
         StreamStates.TOO_LONG_TO_LOAD: " 💤 ",
-        StreamStates.INTERNAL_SERVICE_ERROR: " ⚠️ "
+        StreamStates.INTERNAL_SERVICE_ERROR: " ⚠️ ",
+        StreamStates.CANT_LOAD_CAMERA_PAGE: " ⚠️ ",
+        StreamStates.LOGIN_ERROR: " ⚠️ "
     }
     result_emoji_text = " ".join(states_to_emoji[state] for state in state_array)
     return result_emoji_text
@@ -32,7 +34,16 @@ def post_status_to_slack(stream_states):
             return
         else:
             blocks = []
+            client = WebClient(token=SLACK_TOKEN)
             for index,org_data in enumerate(stream_states):
+                if len(blocks) > 30:
+                    response = client.chat_postMessage(
+                        channel=SLACK_CHANNEL, 
+                        text="Live Stream Check", 
+                        blocks=blocks
+                    )
+                    logger.info(f"Block limit reaching - Flushing to Slack : {response}")
+                    blocks.clear()
                 if index > 0:
                     divider = {"type": "divider"}
                     blocks.append(divider)
@@ -64,7 +75,6 @@ def post_status_to_slack(stream_states):
                 ],
             }
             blocks.append(info_section)
-            client = WebClient(token=SLACK_TOKEN)
             response = client.chat_postMessage(
                 channel=SLACK_CHANNEL, 
                 text="Live Stream Check", 

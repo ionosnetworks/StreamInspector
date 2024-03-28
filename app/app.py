@@ -19,8 +19,11 @@ DEFAULT_ACCOUNT_PASSWORD = os.environ.get("DEFAULT_ACCOUNT_PASSWORD")
 def get_org_user_details(orgs_to_inspect: str):
     # Try to filter down to single installer account per org
     try:
-        orgs_to_inspect = [int(o.strip()) for o in orgs_to_inspect.split(',')]
-        orgs_to_inspect_str = ', '.join(map(str, orgs_to_inspect))
+        if orgs_to_inspect:
+            orgs_to_inspect = [int(o.strip()) for o in orgs_to_inspect.split(',')]
+            orgs_to_inspect_str = ', '.join(map(str, orgs_to_inspect))
+        else:
+            orgs_to_inspect_str = "select distinct organization_id from organization_slack_channel"
         query = f"""
             select
             users.organization_id as org_id,
@@ -105,6 +108,7 @@ def start_workflow():
             return None
         else:
             # process each org
+            logger.info(f"Found {len(account_info)} accounts to inspect")
             for account in account_info:
                 # spawn a browser
                 try:
